@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inventario Integridad — Dashboard</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="screen">
+    <div class="login-panel glass">
+      <div class="brand">
+        <div class="logo">🔐</div>
+        <div>
+          <h1>Inventario Integridad</h1>
+          <p class="muted">Acceso seguro al sistema</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <label>
+          <span>Usuario</span>
+          <input id="usuario" type="text" placeholder="usuario" required />
+        </label>
+        <label>
+          <span>Contraseña</span>
+          <input id="clave" type="password" placeholder="••••••" required />
+        </label>
+        <div class="actions">
+          <button class="btn primary" type="submit">Ingresar</button>
+          <button id="demoFill" type="button" class="btn ghost">Usar demo</button>
+        </div>
+        <div class="help">
+          <small>Credenciales demo: <b>admin/admin123</b>, <b>user/user123</b></small>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" class="app" style="display:none;">
+    
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="search">
+        <input id="globalSearch" placeholder="Buscar producto / usuario..." />
+      </div>
+      <div class="top-actions">
+        <div class="kpi-mini">
+          <small class="muted">Usuario</small>
+          <div id="topUser" class="bold">--</div>
+        </div>
+        <div class="notifications">
+          <button id="bell" class="icon-btn">🔔 <span id="notifCount" class="badge">0</span></button>
+          <div id="notifDropdown" class="dropdown hidden"></div>
+        </div>
+        <button id="logout" class="btn danger small">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <button data-view="dashboard" class="nav-link active">📊 Dashboard</button>
+      <button data-view="movimiento" class="nav-link">➕ Movimiento</button>
+      <button data-view="inventario" class="nav-link">📦 Inventario</button>
+      <button data-view="pendientes" id="navPendientes" class="nav-link" style="display:none;">⏳ Pendientes</button>
+      <button data-view="registros" id="navRegistros" class="nav-link" style="display:none;">📑 Registros</button>
+      <button data-view="usuarios" id="navUsuarios" class="nav-link" style="display:none;">👥 Usuarios</button>
+    </nav>
+
+    <!-- MAIN -->
+    <main class="main">
+      
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view active">
+        <div class="grid kpi-grid">
+          <article class="kpi card">
+            <h4>Total Productos</h4>
+            <div class="kpi-value" id="kpiProductos">0</div>
+            <small class="muted">Productos distintos en inventario</small>
+          </article>
+          <article class="kpi card">
+            <h4>Movimientos</h4>
+            <div class="kpi-value" id="kpiMovimientos">0</div>
+            <small class="muted">Total movimientos registrados</small>
+          </article>
+          <article class="kpi card alert">
+            <h4>Pendientes</h4>
+            <div class="kpi-value" id="kpiPendientes">0</div>
+            <small class="muted">Movimientos por aprobar</small>
+          </article>
+          <article class="kpi card warn">
+            <h4>Bajo Stock</h4>
+            <div class="kpi-value" id="kpiBajoStock">0</div>
+            <small class="muted">Productos críticos</small>
+          </article>
+        </div>
+
+        <div class="grid charts-grid">
+          <div class="card">
+            <h3>Inventario por Producto</h3>
+            <canvas id="chartInventory" height="120"></canvas>
+          </div>
+          <div class="card">
+            <h3>Movimientos (últimos 14 días)</h3>
+            <canvas id="chartMovimientos" height="120"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Últimos Movimientos</h3>
+          <table class="table">
+            <thead>
+              <tr><th>Usuario</th><th>Producto</th><th>Cantidad</th><th>Acción</th><th>Fecha</th></tr>
+            </thead>
+            <tbody id="tablaUltimos"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- MOVIMIENTO -->
+      <section id="view-movimiento" class="view">
+        <div class="card form-card">
+          <h3>Nuevo Movimiento</h3>
+          <form id="formMovimiento" class="form-grid">
+            <label>
+              <span>Producto</span>
+              <input id="nombre" required placeholder="Nombre del producto" />
+            </label>
+            <label>
+              <span>Cantidad</span>
+              <input id="cantidad" type="number" required min="1" />
+            </label>
+            <label>
+              <span>Acción</span>
+              <select id="accion" required>
+                <option>Agregar</option>
+                <option>Retirar</option>
+              </select>
+            </label>
+            <div class="form-actions">
+              <button class="btn success" type="submit">Enviar</button>
+              <button id="formReset" class="btn ghost" type="button">Limpiar</button>
+            </div>
+            <small class="muted">Si no eres administrador, los retiros se enviarán a aprobación.</small>
+          </form>
+        </div>
+      </section>
+
+      <!-- INVENTARIO -->
+      <section id="view-inventario" class="view">
+        <div class="card">
+          <div class="table-header">
+            <h3>Inventario</h3>
+            <div>
+              <input id="buscarInventario" placeholder="Buscar producto..." />
+              <select id="filtrarStock">
+                <option value="all">Todos</option>
+                <option value="low">Bajo stock (&lt;5)</option>
+                <option value="zero">Sin stock</option>
+              </select>
+            </div>
+          </div>
+          <table class="table" id="tablaInventario">
+            <thead>
+              <tr>
+                <th data-col="id">ID ⬍</th>
+                <th data-col="nombre">Producto ⬍</th>
+                <th data-col="cantidad">Cantidad ⬍</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PENDIENTES -->
+      <section id="view-pendientes" class="view">
+        <div class="card">
+          <h3>Movimientos Pendientes</h3>
+          <table class="table">
+            <thead>
+              <tr><th>Usuario</th><th>Producto</th><th>Cantidad</th><th>Acción</th><th>Fecha</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tablaPendientes"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- REGISTROS -->
+      <section id="view-registros" class="view">
+        <div class="card">
+          <h3>Registro de Movimientos</h3>
+          <table class="table">
+            <thead>
+              <tr><th>Usuario</th><th>Producto</th><th>Cantidad</th><th>Acción</th><th>Fecha</th></tr>
+            </thead>
+            <tbody id="tablaRegistros"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- USUARIOS -->
+      <section id="view-usuarios" class="view">
+        <div class="card">
+          <div class="table-header">
+            <h3>Gestión de Usuarios</h3>
+            <button id="btnNuevoUsuario" class="btn primary small">+ Nuevo usuario</button>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>Usuario</th><th>Rol</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tablaUsuarios"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- MODAL -->
+  <div id="modalUsuario" class="modal hidden">
+    <div class="modal-card">
+      <h3 id="modalTitle">Nuevo usuario</h3>
+      <form id="usuarioForm" class="form-grid">
+        <label><span>Usuario</span><input id="u_nombre" required /></label>
+        <label><span>Contraseña</span><input id="u_clave" /></label>
+        <label><span>Rol</span>
+          <select id="u_rol">
+            <option value="user">Usuario</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="auditor">Auditor</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </label>
+        <div class="form-actions">
+          <button class="btn primary" type="submit">Guardar</button>
+          <button type="button" id="modalCancel" class="btn ghost">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
